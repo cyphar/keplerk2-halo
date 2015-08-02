@@ -1,0 +1,10 @@
+{
+	"target": 203729612,
+	"coord": {
+		"ra": "16 30 03.265",
+		"dec": "-25 08 18.06"
+	},
+	"campaign": 2,
+	"fits": "ktwo203729612-c02_lpd-targ.fits",
+	"kmag": 18.195
+}

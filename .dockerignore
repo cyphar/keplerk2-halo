@@ -1,0 +1,11 @@
+# Default to add nothing.
+*
+
+# Only add things we need.
+!requirements.txt
+!scripts/*.py
+!scripts/pre/*.py
+!scripts/analysis/*.py
+!scripts/post/*.py
+
+# We VOLUME out data/, so ignore it here.

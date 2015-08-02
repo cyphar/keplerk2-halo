@@ -1,0 +1,13 @@
+* What is Kepler? What is K2?
+* Science case and why we care about B stars.
+* Bandwidth issues and why we don't have B star postage stamps.
+* Historical research and limitations (can only observe at night).
+* Outline of general idea behind the technique (with examples and ∂ Sco example).
+* Sample contaminated postage stamps (with example non-contaminated postage
+  stamp).
+* π Sco: reproducing ground based results.
+* ∂ Sco: new science and reproducing LPV oscillation (if it works, if not talk
+         about further research).
+* Collateral data (smear) and futher research.
+* c04 and the Pilades (further study and applications).
+* Issues and potential improvements.

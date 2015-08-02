@@ -1,0 +1,15 @@
+.DS_Store
+
+# Makefile temporary.
+.build
+
+# Output files.
+*out*
+*.mp4
+*.png
+*.jpg
+*.gif
+
+# Temporary python files.
+__pycache__/
+*.py[a-z]

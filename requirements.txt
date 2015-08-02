@@ -1,0 +1,6 @@
+numpy>=1.9.2
+scipy>=0.16.0
+shapely>=1.5.12
+astropy>=1.0.4
+scikit-learn>=0.16.1
+matplotlib>=1.4.3

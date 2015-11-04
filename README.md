@@ -9,6 +9,21 @@ star contamination of Kepler K2 postage stamps. Specifically, we focus on
 examples in campaign 2, but create general techniques which can be applied to
 any other campaign (or to astronomy in general).
 
+### Usage ###
+
+The real magic is inside `scripts/analysis/clever.py`. To analyse the &pi; Sco
+data, run the following command in any *nix shell:
+
+```
+% ./scripts/analysis/clever.py --csv \
+	-mf 400 -m data/pi_Sco/1.203442993/ap_203442993.txt -d 1 \
+	-s pi+analysis.csv -t data/pi_Sco/1.203442993/xy_203442993.csv \
+	data/pi_Sco/1.203442993/ktwo203442993-c02_lpd-targ.fits
+% ./scripts/post/lc.py --no-title --no-fft -w 2 \
+	-fp 1.570103 -pt 2452025.96 \
+	<(./scripts/post/highpass.py -o 6 -w 201 -sc 50 -ec -580 pi+analysis.csv)
+```
+
 ### &pi; Sco ###
 This is an example of our analysis usnig aperture analysis, using
 `EPIC 203442993`. This photometric analysis mirrors ground-based surveys of
@@ -48,3 +63,9 @@ The `*.json` metadata was collated using both [SIMBAD][simbad] and
 [k2-data-policy]: https://archive.stsci.edu/data_use.html
 [k2-search]: https://archive.stsci.edu/k2/data_search/search.php
 [simbad]: http://simbad.u-strasbg.fr/simbad/
+
+### Where do I ~~sign~~ cite? ###
+
+A paper is currently in the works, so there's nothing to cite *quite* yet. It'll
+hopefully all be done and ready to publish by early 2016. Watch this space to
+read the paper once it's published.

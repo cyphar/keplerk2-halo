@@ -15,13 +15,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import csv
 import sys
 import argparse
-import warnings
-
-#import statsmodels as sm
-#import statsmodels.api
 
 import numpy as np
 
@@ -30,17 +25,31 @@ import utils
 FIELDS = ["cadence", "t", "flux"]
 CASTS = [int, float, float]
 
-DETERMINATION_THRESHOLD = 0.5
+# In order to deal with local outliers, we need to do a "windowed" outlier
+# rejection. The number of passes required (and the window size and step size)
+# are a matter of taste, and we'll need to investigate what the best defaults
+# are. I'm worried about having step_size < window_size, because you end up
+# doing outlier rejection multiple times on the same chunk in the same pass. So
+# we're not going to do it that way.
 
 def reject_outliers(xs, ys, config):
-	#regression = sm.api.OLS(xs, ys).fit()
-	#outliers = regression.outlier_test()
+	# Start with a filter made entirely of zeros.
+	filt = np.ones_like(ys).astype(bool)
+	xs = xs - np.min(xs)
 
-	# We're very angry here.
-	sigma = np.std(ys)
-	mean = np.mean(ys)
+	# Do n windows, each with a width of n days.
+	for width in np.arange(config.passes) + 1:
+		# Do a n-day window.
+		days = np.unique(np.floor(xs / width))
+		for day in days * width:
+			window = (day <= xs) & (xs < day + width)
 
-	return (mean - config.sigma*sigma < ys) & (ys < mean + config.sigma*sigma)
+			sigma = np.std(ys[filt & window])
+			mean = np.mean(ys[filt & window])
+
+			filt[filt & window] &= ((mean - config.sigma*sigma < ys[filt & window]) & (ys[filt & window] < mean + config.sigma*sigma))
+
+	return filt
 
 def main(inf, outf, config):
 	with open(inf, "r", newline="") as inf:
@@ -61,8 +70,8 @@ if __name__ == "__main__":
 		parser.add_argument("-sc", "--start", dest="start", type=int, default=None, help="Start cadence (default: None).")
 		parser.add_argument("-ec", "--end", dest="end", type=int, default=None, help="End cadence (default: None).")
 		parser.add_argument("-s", "--save", dest="out", type=str, default=None, help="The output file (default: stdout).")
-		#parser.add_argument("-t", "--threshold", dest="threshold", type=float, default=DETERMINATION_THRESHOLD, help="The threshold for the outlier test (default: %f)." % (DETERMINATION_THRESHOLD,))
-		parser.add_argument("-si", "--sigma", dest="sigma", type=float, default=3, help="Sigma cutoff for an outlier (default: 3).")
+		parser.add_argument("-si", "--sigma", dest="sigma", type=float, default=4, help="Sigma cutoff for an outlier (default: 4).")
+		parser.add_argument("-p", "--passes", dest="passes", type=int, default=3, help="Number of passes when doing windowing (default: 3).")
 		parser.add_argument("file", nargs=1)
 
 		config = parser.parse_args()

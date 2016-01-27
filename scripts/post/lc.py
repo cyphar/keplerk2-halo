@@ -66,6 +66,9 @@ def description(config):
 
 	return str.join(" ", desc)
 
+def amplitude(ys):
+	return (np.max(ys) - np.min(ys)) / 2
+
 # TODO: Make this calling convention prettier.
 def plot_lc(config, fig, ifile):
 	# Get the cadence information.
@@ -90,18 +93,36 @@ def plot_lc(config, fig, ifile):
 		# distributed samples (we drop bad cadences). We need to pass in a list of
 		# angular frequencies to select the frequencies we want. Since we care
 		# about lower frequency peaks, use a log scale.
-		#
+
+		lower = config.low_freq
+		upper = config.high_freq
+
+		# Convert to angular cycles / day.
+		if lower is not None:
+			lower /= 1e6 / (24 * 60 * 60)
+			lower *= 2*np.pi
+		if upper is not None:
+			upper /= 1e6 / (24 * 60 * 60)
+			upper *= 2*np.pi
+
 		# Set the upper and lower limits of the frequency scale to the Nyquist and
 		# the inverse length of the entire campaign, respectively (for obvious
 		# reasons).
-		lower = 1.0 / (np.max(xs) - np.min(xs))
-		upper = 2.0 / (np.mean(np.diff(xs)))
-		fx = np.logspace(math.log10(lower), math.log10(upper), num=config.samples, base=10)
+		if lower is None:
+			lower = 1.0 / (np.max(xs) - np.min(xs))
+		if upper is None:
+			upper = 2.0 / np.mean(np.diff(xs))
+
+		#fx = np.logspace(math.log10(lower), math.log10(upper), num=config.samples, base=10)
+		fx = np.linspace(lower, upper, num=config.samples)
 		fy = sp.signal.lombscargle(xs.astype('float64'), ys.astype('float64'), fx)
 
 		# Normalise values and convert them from angular frequency.
-		fy = np.sqrt(4 * (fy / xs.shape[0])) * 1e6
+		fy = np.sqrt(fy * (4 / xs.shape[0])) * (1e6 / amplitude(ys))
+
+		# Convert to uHz (and from angular frequency).
 		fx /= 2*np.pi
+		fx *= 1e6 / (24 * 60 * 60)
 
 	if config.lc:
 		if config.period is not None:
@@ -133,7 +154,7 @@ def plot_lc(config, fig, ifile):
 	if config.lc:
 		if not (config.period or config.bins):
 			ax1.plot(xs, ys, color="0.5", linestyle="-", marker="None")
-			ax1.plot(xs, ys, color="k", linestyle="None", marker="+", label=r"Kepler/K2 Halo Photometry")
+			#ax1.plot(xs, ys, color="k", linestyle="None", marker="+", label=r"Kepler/K2 Halo Photometry")
 			ax1.set_xlabel("Time ($d$)")
 		else:
 			# TODO: We should overlay a binned version.
@@ -155,12 +176,13 @@ def plot_lc(config, fig, ifile):
 		else:
 			ax2 = ax1
 		ax2.plot(fx, fy, color="k", linestyle="-", marker="None")
-		ax2.xaxis.set_ticks(np.arange(*ax2.get_xlim(), step=1))
-		ax2.xaxis.set_ticks(np.arange(*ax2.get_xlim(), step=0.25), minor=True)
-		ax2.xaxis.grid(True, which="major", color="k", linestyle="--")
-		ax2.xaxis.grid(True, which="minor", color="k", linestyle=":")
+		#ax2.xaxis.set_ticks(np.arange(*ax2.get_xlim(), step=1))
+		#ax2.xaxis.set_ticks(np.arange(*ax2.get_xlim(), step=0.25), minor=True)
+		#ax2.xaxis.grid(True, which="major", color="k", linestyle="--")
+		#ax2.xaxis.grid(True, which="minor", color="k", linestyle=":")
 		ax2.set_axisbelow(True)
-		ax2.set_xlabel("Frequency ($d^{-1}$)")
+		#ax2.set_xlabel("Frequency ($d^{-1}$)")
+		ax2.set_xlabel("Frequency ($\mu$Hz)")
 		ax2.set_ylabel("Amplitude (ppm)")
 
 	plt.legend()
@@ -193,6 +215,8 @@ if __name__ == "__main__":
 		parser.add_argument("-sc", "--start", dest="start", type=int, default=None, help="Start cadence (default: None).")
 		parser.add_argument("-ec", "--end", dest="end", type=int, default=None, help="End cadence (default: None).")
 		parser.add_argument("-fs", "--fft-samples", dest="samples", type=float, default=1e3, help="Number of samples in periodogram (default: 1000).")
+		parser.add_argument("-lf", "--low-frequency", dest="low_freq", type=float, default=None, help="Lowest frequency in periodogram (default: lowest).")
+		parser.add_argument("-hf", "--high-frequency", dest="high_freq", type=float, default=None, help="Highest frequency in periodogram (default: approximate nyquist).")
 		parser.add_argument("-fp", "--folding-period", dest="period", type=float, default=None, help="The folding period of the light curve (default: None).")
 		parser.add_argument("-w", "--width", dest="width", type=int, default=1, help="The phase width displayed (default: 1).")
 		parser.add_argument("-po", "--phase-offset", dest="phase", type=float, default=0, help="Amount by which to phase shift the light curve (default: 0).")

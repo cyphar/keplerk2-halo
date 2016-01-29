@@ -16,11 +16,15 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import csv
+import math
 
-import numpy as np
+import numpy
+
+import scipy
+import scipy.signal
 
 def positions(ndarray):
-	return zip(*np.where(np.ones_like(ndarray)))
+	return zip(*numpy.where(numpy.ones_like(ndarray)))
 
 def filter_img(img, track=None, frame=0):
 	flxs = img[1].data["FLUX"]
@@ -34,7 +38,7 @@ def filter_img(img, track=None, frame=0):
 
 	# Remove frames not in our track data.
 	if track is not None:
-		filt = np.in1d(cadn, [tr["cadence"] for tr in track])
+		filt = numpy.in1d(cadn, [tr["cadence"] for tr in track])
 
 		flxs = flxs[filt]
 		time = time[filt]
@@ -42,7 +46,7 @@ def filter_img(img, track=None, frame=0):
 		cadn = cadn[filt]
 
 		# Fix up track.
-		trac = np.array(track)[np.in1d([tr["cadence"] for tr in track], cadn)]
+		trac = numpy.array(track)[numpy.in1d([tr["cadence"] for tr in track], cadn)]
 		del track
 
 	# Remove bad quality frames.
@@ -55,12 +59,12 @@ def filter_img(img, track=None, frame=0):
 
 	# Deal with NaNs.
 	for flx in flxs:
-		flx[np.isnan(flx)] = np.min(flx[~np.isnan(flx)])
+		flx[numpy.isnan(flx)] = numpy.min(flx[~numpy.isnan(flx)])
 
 	if trac is not None:
 		# We set the first track as being at the given one, because then
 		# the users can deal with specifiying their track point at a time t.
-		trac = np.array([(tr["x"], tr["y"]) for tr in trac], dtype=float)
+		trac = numpy.array([(tr["x"], tr["y"]) for tr in trac], dtype=float)
 		trac[:, 0] -= trac[frame, 0]
 		trac[:, 1] -= trac[frame, 1]
 
@@ -88,7 +92,7 @@ def csv_column_read(f, fieldnames, casts=None, start=None, end=None, reset=False
 	if reset:
 		f.seek(pos)
 
-	return [np.array(col[start:end], dtype=cast) for cast, col in zip(casts, zip(*rows))]
+	return [numpy.array(col[start:end], dtype=cast) for cast, col in zip(casts, zip(*rows))]
 
 def csv_column_write(f, cols, fieldnames):
 	writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -114,3 +118,51 @@ def latexify(ax):
 		axis.set_tick_params(direction="out", color=SPINE_COLOR)
 
 	return ax
+
+# Proper calibration of Fourier transforms is **vital** in order to make results
+# by different research groups work. This is a free software implementation of
+# the calibration specified by the Kepler Asteroseismic Science Consortium (KASC)
+# [wg1_wgmail02: appendix B].
+#
+# $times should be in units of days, $fluxs should be in units of ppm residuals,
+# $delta should be either None or in units of µHz. The result will be a power
+# spectrum in units (ppm)² per µHz. If $delta is unspecified, it will be set to
+# the logically optimum Fourier sampling of (1/T) (where T is the range of $times).
+#
+# The returned value is a ndarray of form [frequency, spectrum] with frequencies
+# in the range (0, nyquist] with spacing of $delta. The spectrum will be scaled
+# according to the specified standard [wg1_wgmail02: appendix B]. Frequencies are
+# in Hz.
+def standard_fft(times, fluxs, delta=None):
+	# Sanity checking.
+	assert(fluxs.shape[0] == times.shape[0])
+
+	# Make copies so we don't accidentally modify things outside.
+	times = times.copy()
+	fluxs = fluxs.copy()
+
+	# First we need to deal with unit conversions. While we expose "logical"
+	# astrophysics units, we internally need to be using µHz everywhere.
+	times *= 24 * 60 * 60
+
+	# Compute some of the parameters required for the Lomb-Scargle periodogram.
+	N = fluxs.shape[0]
+	T = times.ptp()
+
+	if delta is None:
+		delta = 1 / T
+
+	nyquist = N / (2 * T)
+	samples = math.ceil(nyquist / delta)
+
+	# Calculate a raw power spectrum. Scipy gives us an "unnormalized" power
+	# spectrum, but the form of the output is known to be (A**2) * N/4, if N is
+	# "large enough". It's also important to note that the $freqs parameter
+	# needs to be in angular frequencies.
+	freqs = numpy.linspace(delta, nyquist, samples)# * 1e6
+	raw = scipy.signal.lombscargle(times, fluxs, 2 * math.pi * freqs)
+	raw *= 4 / N
+
+	# Scale power spectrum.
+	scaled = raw * fluxs.var() / (raw.sum() * delta)
+	return numpy.array([freqs, scaled])

@@ -119,21 +119,20 @@ def latexify(ax):
 
 	return ax
 
-# Proper calibration of Fourier transforms is **vital** in order to make results
-# by different research groups work. This is a free software implementation of
-# the calibration specified by the Kepler Asteroseismic Science Consortium (KASC)
-# [wg1_wgmail02: appendix B].
+# This generates a Lomb-Scargle periodogram in units of ppm and Hz (meaning that
+# a signal of the form A * sin(2πf * t) will produce a peak at f with an amplitude
+# of A).
 #
 # $times should be in units of days, $fluxs should be in units of ppm residuals,
 # $delta should be either None or in units of µHz. The result will be a power
 # spectrum in units (ppm)² per µHz. If $delta is unspecified, it will be set to
 # the logically optimum Fourier sampling of (1/T) (where T is the range of $times).
+# $upper should be in µHz, and a warning will be emitted if it is lower than the
+# optimistic nyquist frequency (1 / (2 * median(∆t))).
 #
 # The returned value is a ndarray of form [frequency, spectrum] with frequencies
-# in the range (0, nyquist] with spacing of $delta. The spectrum will be scaled
-# according to the specified standard [wg1_wgmail02: appendix B]. Frequencies are
-# in Hz.
-def standard_fft(times, fluxs, delta=None):
+# in the range (0, nyquist] with spacing of $delta. Frequencies are in Hz.
+def lombscargle_amplitude(times, fluxs, mult=1, upper=None):
 	# Sanity checking.
 	assert(fluxs.shape[0] == times.shape[0])
 
@@ -149,20 +148,53 @@ def standard_fft(times, fluxs, delta=None):
 	N = fluxs.shape[0]
 	T = times.ptp()
 
-	if delta is None:
-		delta = 1 / T
+	delta = 1 / (mult * T)
 
-	nyquist = N / (2 * T)
-	samples = math.ceil(nyquist / delta)
+	# Check against nyquist and use it as the default upper frequency.
+	nyquist = N / (2 * numpy.median(times))
+	if upper is None:
+		upper = nyquist
+	else:
+		upper /= 1e6
+
+	if upper < nyquist:
+		warnings.warn("Given upper frequency (%f) for Lomb-Scargle periodogram is lower than the optimistic Nyquist frequency (%f). You may lose spectral data as a result.")
+
+	samples = math.ceil(upper / delta)
 
 	# Calculate a raw power spectrum. Scipy gives us an "unnormalized" power
 	# spectrum, but the form of the output is known to be (A**2) * N/4, if N is
 	# "large enough". It's also important to note that the $freqs parameter
 	# needs to be in angular frequencies.
-	freqs = numpy.linspace(delta, nyquist, samples)# * 1e6
+	freqs = numpy.linspace(delta, upper, samples)
 	raw = scipy.signal.lombscargle(times, fluxs, 2 * math.pi * freqs)
-	raw *= 4 / N
+	raw = numpy.sqrt(raw * (4 / N))
+
+	return numpy.array([freqs * 1e6, raw])
+
+# Proper calibration of Fourier transforms is **vital** in order to make results
+# by different research groups work. This is a free software implementation of
+# the calibration specified by the Kepler Asteroseismic Science Consortium (KASC)
+# [wg1_wgmail02: appendix B]. This produces a calibrated power spectral density
+# (PSD).
+#
+# $times should be in units of days, $fluxs should be in units of ppm residuals,
+# $delta should be either None or in units of µHz. The result will be a power
+# spectrum in units (ppm)² per µHz. If $delta is unspecified, it will be set to
+# the logically optimum Fourier sampling of (1/T) (where T is the range of $times).
+#
+# The returned value is a ndarray of form [frequency, spectrum] with frequencies
+# in the range (0, nyquist] with spacing of $delta. The spectrum will be scaled
+# according to the specified standard [wg1_wgmail02: appendix B]. Frequencies are
+# in Hz.
+
+# Converts a raw (amplitude) periodogram to a calibrated PSD according to the
+# description in [wg1_wgmail02: appendix B].
+def raw_to_psd(freqs, raw, variance):
+	# Amplitude -> Power
+	raw = raw ** 2
 
 	# Scale power spectrum.
-	scaled = raw * fluxs.var() / (raw.sum() * delta)
+	# ppm^2 * (ppm^2 / ppm^2) / µHz
+	scaled = raw * variance / (raw.sum() * numpy.diff(freqs).mean())
 	return numpy.array([freqs, scaled])

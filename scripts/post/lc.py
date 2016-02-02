@@ -16,13 +16,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import os
-import csv
 import sys
-import math
 import argparse
-
-import astropy as ap
-import astropy.io.fits
 
 import matplotlib as mpl
 if "--animate" in sys.argv or "--ani" in sys.argv:
@@ -44,10 +39,6 @@ mpl.rcParams.update({
 })
 
 import numpy as np
-
-import scipy as sp
-import scipy.signal
-import scipy.stats
 
 import utils
 
@@ -79,8 +70,9 @@ def plot_lc(config, fig, ifile):
 	xs = times
 	ys = fluxs
 
-	# Deal with relative flux (that's all we care about).
-	ys = ys / np.mean(ys) - 1
+	# Convert flux to ppm.
+	#ys = ys / ys.mean() - 1
+	#ys *= 1e6
 
 	# Figure out time-related offsets.
 	offset = np.min(times)
@@ -89,40 +81,11 @@ def plot_lc(config, fig, ifile):
 		config.timestamp -= offset
 
 	if config.fft:
-		# Generate an FFT using Lomb-Scargle because we have potentially unevenly
-		# distributed samples (we drop bad cadences). We need to pass in a list of
-		# angular frequencies to select the frequencies we want. Since we care
-		# about lower frequency peaks, use a log scale.
+		fx, fy = utils.lombscargle_amplitude(xs, ys, upper=config.high_freq)
 
-		lower = config.low_freq
-		upper = config.high_freq
-
-		# Convert to angular cycles / day.
-		if lower is not None:
-			lower /= 1e6 / (24 * 60 * 60)
-			lower *= 2*np.pi
-		if upper is not None:
-			upper /= 1e6 / (24 * 60 * 60)
-			upper *= 2*np.pi
-
-		# Set the upper and lower limits of the frequency scale to the Nyquist and
-		# the inverse length of the entire campaign, respectively (for obvious
-		# reasons).
-		if lower is None:
-			lower = 1.0 / (np.max(xs) - np.min(xs))
-		if upper is None:
-			upper = 2.0 / np.mean(np.diff(xs))
-
-		#fx = np.logspace(math.log10(lower), math.log10(upper), num=config.samples, base=10)
-		fx = np.linspace(lower, upper, num=config.samples)
-		fy = sp.signal.lombscargle(xs.astype('float64'), ys.astype('float64'), fx)
-
-		# Normalise values and convert them from angular frequency.
-		fy = np.sqrt(fy * (4 / xs.shape[0])) * (1e6 / amplitude(ys))
-
-		# Convert to uHz (and from angular frequency).
-		fx /= 2*np.pi
-		fx *= 1e6 / (24 * 60 * 60)
+		if config.fftout:
+			with open(config.fftout, "w", newline="") as f:
+				utils.csv_column_write(f, [fx, fy], ["frequency", "amplitude"])
 
 	if config.lc:
 		if config.period is not None:
@@ -165,7 +128,7 @@ def plot_lc(config, fig, ifile):
 				ax1.xaxis.grid(True, which="minor", color="r", linestyle="--", linewidth=2)
 			ax1.plot(xs, ys, color="0.5", linestyle="None", marker="o", label=r"Kepler/K2 Halo Photometry")
 			ax1.set_xlabel("Phase")
-		ax1.set_ylabel(r"Relative Flux")
+		ax1.set_ylabel(r"Intensity (ppm)")
 
 	if config.lc and config.title:
 		ax1.set_title(r"Light Curve [%s] # %s" % (description(config), config.comment or ""))
@@ -184,6 +147,7 @@ def plot_lc(config, fig, ifile):
 		#ax2.set_xlabel("Frequency ($d^{-1}$)")
 		ax2.set_xlabel("Frequency ($\mu$Hz)")
 		ax2.set_ylabel("Amplitude (ppm)")
+		#ax2.set_ylabel("PDF (ppm$^2$ $\mu$Hz$^{-1}$)")
 
 	plt.legend()
 	fig.tight_layout()
@@ -203,7 +167,6 @@ def main(ifile, config):
 
 if __name__ == "__main__":
 	def __wrapped_main__():
-
 		parser = argparse.ArgumentParser(description="Given an analysis, generate a light curve for the data.")
 		parser.add_argument("-lc", "--light-curve", dest="lc", action="store_const", const=True, default=True, help="Enable light curve (default).")
 		parser.add_argument("-nolc", "--no-light-curve", dest="lc", action="store_const", const=False, default=True, help="Disable light curve.")
@@ -215,7 +178,6 @@ if __name__ == "__main__":
 		parser.add_argument("-sc", "--start", dest="start", type=int, default=None, help="Start cadence (default: None).")
 		parser.add_argument("-ec", "--end", dest="end", type=int, default=None, help="End cadence (default: None).")
 		parser.add_argument("-fs", "--fft-samples", dest="samples", type=float, default=1e3, help="Number of samples in periodogram (default: 1000).")
-		parser.add_argument("-lf", "--low-frequency", dest="low_freq", type=float, default=None, help="Lowest frequency in periodogram (default: lowest).")
 		parser.add_argument("-hf", "--high-frequency", dest="high_freq", type=float, default=None, help="Highest frequency in periodogram (default: approximate nyquist).")
 		parser.add_argument("-fp", "--folding-period", dest="period", type=float, default=None, help="The folding period of the light curve (default: None).")
 		parser.add_argument("-w", "--width", dest="width", type=int, default=1, help="The phase width displayed (default: 1).")
@@ -223,6 +185,7 @@ if __name__ == "__main__":
 		parser.add_argument("-pt", "--past-timestamp", dest="timestamp", type=float, default=None, help="BJD timestamp of some event that occured in the past to plot the predicted value of given the period (default: None).")
 		parser.add_argument("-b", "--bins", dest="bins", type=int, default=None, help="The number of bins to bin the folded light curve (default: none).")
 		parser.add_argument("-s", "--save", dest="ofile", type=str, default=None, help="The output file.")
+		parser.add_argument("--save-fft", dest="fftout", type=str, default=None, help="The output file for the FFT data.")
 		parser.add_argument("csv", nargs=1)
 
 		config = parser.parse_args()

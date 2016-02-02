@@ -39,8 +39,13 @@ def highpass(ts, ys, config):
 	itp = sp.interpolate.interp1d(ts, ys, kind='linear')
 	smooth = sp.signal.savgol_filter(itp(ts), config.size, config.order)
 
-	# Decorrelate the smoothed version.
-	ys /= smooth
+	# Subtract a smoothed version then add the mean to produce a realistic value.
+	ys -= smooth - ys.mean()
+
+	# Convert to ppm.
+	if config.residual:
+		ys = (ys - ys.mean()) / ys.mean()
+		ys *= 1e6
 
 	return ts, ys
 
@@ -60,6 +65,8 @@ if __name__ == "__main__":
 		parser = argparse.ArgumentParser(description="Given the results of a photometric analysis, conduct a high pass filter to remove simple systematics by decorellating a Savgol smoothed version.")
 		parser.add_argument("-sc", "--start", dest="start", type=int, default=None, help="Start cadence (default: None).")
 		parser.add_argument("-ec", "--end", dest="end", type=int, default=None, help="End cadence (default: None).")
+		parser.add_argument("-r", "--residual", dest="residual", action="store_const", const=True, default=False, help="Return residuals in ppm.")
+		parser.add_argument("--no-residual", dest="residual", action="store_const", const=False, default=False, help="Return just corrected light curve (default).")
 		parser.add_argument("-w", "--width", dest="size", type=int, default=DEFAULT_SIZE, help="Window size of filter (default: %f)." % (DEFAULT_SIZE,))
 		parser.add_argument("-o", "--order", dest="order", type=int, default=DEFAULT_ORDER, help="Order of polynomial (default: %f)." % (DEFAULT_ORDER,))
 		parser.add_argument("-s", "--save", dest="out", type=str, default=None, help="The output file (default: stdout).")

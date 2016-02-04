@@ -20,23 +20,12 @@ import sys
 import math
 import argparse
 
-import astropy
-import astropy.convolution
-
-import numpy as np
-
-import scipy as sp
-import scipy.signal
-import scipy.interpolate
+import numpy
 
 import utils
 
-FIELDS = ["cadence", "t", "flux"]
-CASTS = [int, float, float]
-
-# We need to fake cadence numbers.
-def merge():
-	pass
+FIELDS = ["t", "flux"]
+CASTS = [float, float]
 
 def main(files, outf, config):
 	TIME = []
@@ -57,7 +46,7 @@ def main(files, outf, config):
 
 		# Open file.
 		with open(fname, "r", newline="") as f:
-			_, times, fluxs = utils.csv_column_read(f, FIELDS, casts=CASTS)
+			times, fluxs = utils.csv_column_read(f, FIELDS, casts=CASTS)
 
 		# Times.
 		offset = times - times.min()
@@ -72,19 +61,27 @@ def main(files, outf, config):
 		fluxs = fluxs[filt]
 
 		# Append.
-		TIME = np.append(TIME, times)
-		FLUX = np.append(FLUX, fluxs)
+		TIME = numpy.append(TIME, times)
+		FLUX = numpy.append(FLUX, fluxs)
 
-	# Do the thing.
-	CADN = np.arange(TIME.shape[0]) + 1
-	utils.csv_column_write(outf, [CADN, TIME, FLUX], FIELDS)
+	# Fake the cadence numbers.
+	CADN = numpy.arange(TIME.shape[0]) + 1
+
+	# We need to sort by the time. This is a bit of a pain, because the operation
+	# of "sorting rows" isn't a thing in numpy. We need to switch out to Python
+	# lists.
+	tosort = numpy.array([TIME, FLUX]).T
+	tosort = sorted(list(tosort), key=lambda arr: arr[0])
+	TIME, FLUX = numpy.array(tosort).T
+
+	utils.csv_column_write(outf, [CADN, TIME, FLUX], ["cadence"] + FIELDS)
 
 if __name__ == "__main__":
 	def __wrapped_main__():
 		DEFAULT_ORDER = 3
 		DEFAULT_SIZE = 101
 
-		parser = argparse.ArgumentParser(description="Given the results of a photometric analysis, conduct a high pass filter to remove simple systematics by decorellating a Savgol smoothed version.")
+		parser = argparse.ArgumentParser(description="Given a set of time series, merge them into one. You can use slice syntax at the end of the file to use subsets of time series.")
 		parser.add_argument("-s", "--save", dest="out", type=str, default=None, help="The output file (default: stdout).")
 		parser.add_argument("files", nargs='+')
 

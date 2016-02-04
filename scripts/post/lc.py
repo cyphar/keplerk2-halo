@@ -129,6 +129,10 @@ def plot_lc(config, fig, ifile):
 			ax1.plot(xs, ys, color="0.5", linestyle="None", marker="o", label=r"Kepler/K2 Halo Photometry")
 			ax1.set_xlabel("Phase")
 		ax1.set_ylabel(r"Intensity (ppm)")
+		if config.maxx > config.minx:
+			ax1.set_xlim([config.minx, config.maxx])
+		if config.maxy > config.miny:
+			ax1.set_ylim([config.miny, config.maxy])
 
 	if config.lc and config.title:
 		ax1.set_title(r"Light Curve [%s] # %s" % (description(config), config.comment or ""))
@@ -168,6 +172,10 @@ def main(ifile, config):
 if __name__ == "__main__":
 	def __wrapped_main__():
 		parser = argparse.ArgumentParser(description="Given an analysis, generate a light curve for the data.")
+		parser.add_argument("--min-x", dest="minx", type=float, default=0, help="Minimum x value for frequency.")
+		parser.add_argument("--max-x", dest="maxx", type=float, default=0, help="Maximum x value for frequency.")
+		parser.add_argument("--min-y", dest="miny", type=float, default=0, help="Minimum y value for frequency.")
+		parser.add_argument("--max-y", dest="maxy", type=float, default=0, help="Maximum y value for frequency.")
 		parser.add_argument("-lc", "--light-curve", dest="lc", action="store_const", const=True, default=True, help="Enable light curve (default).")
 		parser.add_argument("-nolc", "--no-light-curve", dest="lc", action="store_const", const=False, default=True, help="Disable light curve.")
 		parser.add_argument("-fft", "--fft", dest="fft", action="store_const", const=True, default=True, help="Enable Fourier transform (default).")

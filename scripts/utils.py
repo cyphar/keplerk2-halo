@@ -151,7 +151,7 @@ def lombscargle_amplitude(times, fluxs, mult=1, upper=None):
 	delta = 1 / (mult * T)
 
 	# Check against nyquist and use it as the default upper frequency.
-	nyquist = N / (2 * numpy.median(times))
+	nyquist = N / (2 * numpy.median(numpy.diff(times)))
 	if upper is None:
 		upper = nyquist
 	else:

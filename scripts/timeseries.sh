@@ -1,5 +1,7 @@
 #!/bin/zsh
 
+OUT="${OUT:-done.csv}"
+
 mkdir -p tmp
 export TEMPDIR=$(pwd)/tmp
 
@@ -15,11 +17,10 @@ do
 
 	echo ":: ppm => $file"
 	./scripts/post/ppm.py -s $working/{ppm,highpass}/$(basename $file)
-
-	echo ":: outlier => $file"
-	./scripts/post/outliers.py -si 4 -p 10 -s $working/{outlier,ppm}/$(basename $file)
-
 done
 
 echo ":: merge"
-./scripts/etc/merge.py -s merged.csv $working/outlier/*.csv
+./scripts/etc/merge.py -s $working/merged.csv $working/ppm/*.csv
+
+echo ":: outlier"
+./scripts/post/outliers.py -si 3 -p 10 -s "$OUT" $working/merged.csv

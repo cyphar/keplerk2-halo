@@ -23,4 +23,4 @@ echo ":: merge"
 ./scripts/etc/merge.py -s $working/merged.csv $working/ppm/*.csv
 
 echo ":: outlier"
-./scripts/post/outliers.py -si 3 -p 10 -s "$OUT" $working/merged.csv
+./scripts/post/outliers.py -si 4 -p 10 -s "$OUT" $working/merged.csv

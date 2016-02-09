@@ -87,6 +87,8 @@ def plot_lc(config, fig, ifile):
 			with open(config.fftout, "w", newline="") as f:
 				utils.csv_column_write(f, [fx, fy], ["frequency", "amplitude"])
 
+		fx, fy = utils.raw_to_psd(fx, fy, fluxs.var())
+
 	if config.lc:
 		if config.period is not None:
 			# TODO: We should allow for showing more than one phase.
@@ -150,8 +152,8 @@ def plot_lc(config, fig, ifile):
 		ax2.set_axisbelow(True)
 		#ax2.set_xlabel("Frequency ($d^{-1}$)")
 		ax2.set_xlabel("Frequency ($\mu$Hz)")
-		ax2.set_ylabel("Amplitude (ppm)")
-		#ax2.set_ylabel("PDF (ppm$^2$ $\mu$Hz$^{-1}$)")
+		#ax2.set_ylabel("Amplitude (ppm)")
+		ax2.set_ylabel("PDF (ppm$^2$ $\mu$Hz$^{-1}$)")
 
 	plt.legend()
 	fig.tight_layout()

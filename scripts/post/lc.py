@@ -131,10 +131,6 @@ def plot_lc(config, fig, ifile):
 			ax1.plot(xs, ys, color="0.5", linestyle="None", marker="o", label=r"Kepler/K2 Halo Photometry")
 			ax1.set_xlabel("Phase")
 		ax1.set_ylabel(r"Intensity (ppm)")
-		if config.maxx > config.minx:
-			ax1.set_xlim([config.minx, config.maxx])
-		if config.maxy > config.miny:
-			ax1.set_ylim([config.miny, config.maxy])
 
 	if config.lc and config.title:
 		ax1.set_title(r"Light Curve [%s] # %s" % (description(config), config.comment or ""))
@@ -154,6 +150,10 @@ def plot_lc(config, fig, ifile):
 		ax2.set_xlabel("Frequency ($\mu$Hz)")
 		#ax2.set_ylabel("Amplitude (ppm)")
 		ax2.set_ylabel("PDF (ppm$^2$ $\mu$Hz$^{-1}$)")
+		if config.maxx > config.minx:
+			ax2.set_xlim([config.minx, config.maxx])
+		if config.maxy > config.miny:
+			ax2.set_ylim([config.miny, config.maxy])
 
 	plt.legend()
 	fig.tight_layout()

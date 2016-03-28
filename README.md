@@ -12,7 +12,7 @@ any other campaign (or to astronomy in general).
 ### Usage ###
 
 The real magic is inside `scripts/analysis/clever.py`. To analyse the &pi; Sco
-data, run the following command in any *nix shell:
+data, run the following command in any `*nix` shell:
 
 ```
 % ./scripts/analysis/clever.py --csv \
@@ -31,17 +31,19 @@ This is an example of our analysis usnig aperture analysis, using
 
 ![piscoexample.png](piscoexample.png)
 
+
 ### License ###
-The source code under `scripts/` is licensed under version 2 of the GNU General
-Public License:
+
+The source code under `scripts/` is licensed under the ([GPLv3 or later](https://www.gnu.org/licenses/gpl-3.0.en.html))
+License.
 
 ```
-keplerk2-halo: Halo Photometry of Contaminated Kepler/K2 Pixels
 Copyright (C) 2015 Aleksa Sarai <cyphar@cyphar.com>
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of version 2 of the GNU General Public
-License as published by the Free Software Foundation.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -49,8 +51,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ```
 
 The files under `data/` are all [publicly available][k2-archive] and are

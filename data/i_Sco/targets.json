@@ -3,15 +3,19 @@
 	"mag": 4.72,
 	"targets": {
 		"1.203729612": {
+			"campaign": 2,
 			"angsep": 2.505
 		},
 		"2.203726858": {
+			"campaign": 2,
 			"angsep": 2.631
 		},
 		"3.203749579": {
+			"campaign": 2,
 			"angsep": 2.987
 		},
 		"4.203747663": {
+			"campaign": 2,
 			"angsep": 3.051
 		}
 	}

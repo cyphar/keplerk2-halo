@@ -61,15 +61,21 @@ def save_data(path, config):
 		with open(os.path.join(path, star, STAR_JSON)) as ftargets:
 			targets = json.load(ftargets)
 
-		for target in targets["targets"]:
+		for target, data in targets["targets"].items():
 			sys.stdout.write("Saving target %s/%s " % (star, target))
 			sys.stdout.flush()
 
-			with open(os.path.join(path, star, target, TARGET_JSON)) as fepic:
-				epic = json.load(fepic)
-				url = fits_url(**epic)
+			epic = int(target.split(".")[1])
+			campaign = data["campaign"]
+			fits = "ktwo%d-c%.2d_lpd-targ.fits" % (epic, campaign)
 
-			opath = os.path.join(path, star, target, epic["fits"])
+			url = fits_url(campaign=campaign, target=epic, fits=fits)
+			opath = os.path.join(path, star, target, fits)
+
+			try:
+				os.mkdir(os.path.join(path, star, target))
+			except OSError:
+				pass
 
 			if not config.decompress:
 				opath += ".gz"

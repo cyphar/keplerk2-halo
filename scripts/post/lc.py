@@ -20,8 +20,7 @@ import sys
 import argparse
 
 import matplotlib as mpl
-if "--animate" in sys.argv or "--ani" in sys.argv:
-	mpl.use("TkAgg") # Hack to fix OS X.
+mpl.use("TkAgg")
 if not os.getenv("DISPLAY"):
 	mpl.use("Agg") # Hack to fix no display.
 import matplotlib.pyplot as plt

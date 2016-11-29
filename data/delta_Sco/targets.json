@@ -1,24 +1,31 @@
 {
 	"targets": {
 		"1.204367097": {
+			"campaign": 2,
 			"angsep": 0.778
 		},
 		"2.204358459": {
+			"campaign": 2,
 			"angsep": 2.254
 		},
 		"3.204356633": {
+			"campaign": 2,
 			"angsep": 2.725
 		},
 		"4.204374865": {
+			"campaign": 2,
 			"angsep": 2.813
 		},
 		"5.204361003": {
+			"campaign": 2,
 			"angsep": 4.591
 		},
 		"6.204385179": {
+			"campaign": 2,
 			"angsep": 4.963
 		},
 		"7.204372728": {
+			"campaign": 2,
 			"angsep": 5.233
 		}
 	}

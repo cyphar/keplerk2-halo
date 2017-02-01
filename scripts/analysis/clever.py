@@ -146,7 +146,7 @@ def plot_ani(fig, flximg, aperture, config):
 	for x, y in utils.positions(apxs):
 		apxs[x, y] = not aperture.intersection(shp.geometry.box(x, y, x + 1, y + 1)).is_empty
 
-	pxs = pixels(flxs.shape[1:], dither=dither)
+	pxs = pixels(flxs.shape[1:], config)
 	def animate(i):
 		if i >= flxs.shape[0]:
 			raise StopIteration

@@ -15,9 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import collections
-import requests
 import json
+import argparse
+import requests
+import collections
 
 K2_EPIC_URL = "https://archive.stsci.edu/k2/epic/search.php"
 K2_DATA_URL = "https://archive.stsci.edu/k2/data_search/search.php"
@@ -69,7 +70,6 @@ def stsci_epic_search(url, **kwargs):
 	if r.status_code != requests.codes.ok:
 		raise RuntimeError("status code was not 200: %d" % (r.status_code,))
 	if r.text.strip() == "no rows found":
-		print("NO ROWS FOUND!")
 		return []
 	return r.json()
 
@@ -118,40 +118,33 @@ def stsci_data_search(url, **kwargs):
 	if r.status_code != requests.codes.ok:
 		raise RuntimeError("status code was not 200: %d" % (r.status_code,))
 	if r.text.strip() == "no rows found":
-		print("NO ROWS FOUND!")
 		return []
 
 	return r.json()
 
 
-def main():
-	outfile = "thedata.json"
-	out = {}
-
-	print("OUTPUT: %s" % (outfile,))
-
-	radius = 5
-	search = "<=6"
-
+def main(outfile, config):
 	out = {
-		"radius": radius,
-		"search": search,
+		"radius": config.radius,
+		"search": config.magnitude,
 		"data": [],
 	}
 
-	print ("Finding %s search." % (search,))
-	brights = stsci_epic_search(K2_EPIC_URL, kp=search, k2_avail_flag="0")
+	print ("[*  ] Finding %s search." % (config.magnitude,))
+	brights = stsci_epic_search(K2_EPIC_URL, kp=config.magnitude, k2_avail_flag="0")
 
 	for bright in brights:
-		print("EPIC:   %s" % (bright["EPIC"],))
-		print("Searching in <=%d' radius." % (radius,))
+		print("[** ] EPIC:   %s" % (bright["EPIC"],))
+		print("[** ] Searching in <=%d' radius." % (config.radius,))
 
-		postage_stamps = stsci_data_search(K2_DATA_URL, ra=bright["RA"], dec=bright["Dec"], radius=radius)
+		postage_stamps = stsci_data_search(K2_DATA_URL, ra=bright["RA"], dec=bright["Dec"], radius=config.radius)
 
-		print ("Found [%d] postage stamps!" % (len(postage_stamps),))
+		print ("[** ] Found [%d] postage stamps!" % (len(postage_stamps),))
 
 		nears = []
+		campaigns = set()
 		for postage_stamp in postage_stamps:
+			campaigns.add(postage_stamp["Campaign"])
 			nears.append({
 				"epic": postage_stamp["K2 ID"],
 				"dsname": postage_stamp["Dataset Name"],
@@ -161,6 +154,7 @@ def main():
 
 		out["data"].append({
 			"bright": bright["EPIC"],
+			"campaigns": list(campaigns),
 			"nears": nears,
 		})
 
@@ -168,4 +162,10 @@ def main():
 		json.dump(out, f)
 
 if __name__ == "__main__":
-	main()
+	parser = argparse.ArgumentParser(description="Finds and outputs all 'interesting' EPIC targets, for use in contamination photometry.")
+	parser.add_argument("-m", "--magnitude", dest="magnitude", default="<=6", type=str, help="Magnitude rval of bright star in field.")
+	parser.add_argument("-r", "--radius", dest="radius", default=5, type=float, help='Radius (arcmin) to search for contaminated postage stamps (default: 5").')
+	parser.add_argument("csv", nargs=1)
+
+	args = parser.parse_args()
+	main(outfile=args.csv[0], config=args)

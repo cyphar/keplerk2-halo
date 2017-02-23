@@ -64,7 +64,7 @@ def stsci_epic_search(url, **kwargs):
 	data.update(kwargs)
 
 	if "selectedColumnsCsv" not in kwargs:
-		kwargs["selectedColumnsCsv"] = "id,k2_ra,k2_dec,k2_avail_flag,kp,kepflag,ang_sep"
+		kwargs["selectedColumnsCsv"] = "id,k2_ra,k2_dec,k2_avail_flag,kp,bmag,vmag,kepflag,ang_sep"
 
 	r = requests.post(url, data=data)
 	if r.status_code != requests.codes.ok:
@@ -131,7 +131,7 @@ def main(outfile, config):
 	}
 
 	print ("[*  ] Finding %s search." % (config.magnitude,))
-	brights = stsci_epic_search(K2_EPIC_URL, kp=config.magnitude, k2_avail_flag="0")
+	brights = stsci_epic_search(K2_EPIC_URL, extra_column_name_1="vmag", extra_column_value_1=config.magnitude, k2_avail_flag="0")
 
 	for bright in brights:
 		print("[** ] EPIC:   %s" % (bright["EPIC"],))
@@ -154,6 +154,7 @@ def main(outfile, config):
 
 		out["data"].append({
 			"bright": bright["EPIC"],
+			"hip": bright.get("HIP", None),
 			"campaigns": list(campaigns),
 			"nears": nears,
 		})

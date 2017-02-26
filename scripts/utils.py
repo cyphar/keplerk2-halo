@@ -84,11 +84,17 @@ def csv_column_read(f, fieldnames, casts=None, start=None, end=None, reset=False
 		row = {k: v for k, v in row.items() if k in fieldnames}
 		return [row[key] for key in sorted(row.keys(), key=lambda k: fieldnames.index(k))]
 
+	def safe_cast(cast, *args, **kwargs):
+		try:
+			return cast(*args, **kwargs)
+		except:
+			return None
+
 	if reset:
 		pos = f.tell()
 
 	reader = csv.DictReader(f)
-	rows = [[cast(field) for cast, field in zip(casts, fields)] for fields in (parse_row(row) for row in reader)]
+	rows = [[safe_cast(cast, field) for cast, field in zip(casts, fields)] for fields in (parse_row(row) for row in reader)]
 
 	if reset:
 		f.seek(pos)

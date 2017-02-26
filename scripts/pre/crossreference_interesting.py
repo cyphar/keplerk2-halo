@@ -75,7 +75,10 @@ def simbad_search(search):
 		raise RuntimeError("output missing 'format: ': %s", (output,))
 
 	csv_out = matching[0].split(": ")[1]
-	ident, parallax, spectral, umag, bmag, vmag = csv_out.split(",")
+	ident, parallax, spectral, umag, bmag, vmag, *unused = csv_out.split(",")
+	if len(unused) > 0:
+		sys.stderr.write("# csv_out had more than 6 fields: %s\n" % (csv_out,))
+		sys.stderr.flush()
 
 	return {
 		"ident": ident,

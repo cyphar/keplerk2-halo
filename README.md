@@ -38,7 +38,7 @@ The source code under `scripts/` is licensed under the ([GPLv3 or later](https:/
 License.
 
 ```
-Copyright (C) 2015 Aleksa Sarai <cyphar@cyphar.com>
+Copyright (C) 2015, 2016, 2017 Aleksa Sarai <cyphar@cyphar.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -67,6 +67,6 @@ The `*.json` metadata was collated using both [SIMBAD][simbad] and
 
 ### Where do I ~~sign~~ cite? ###
 
-A paper is currently in the works, so there's nothing to cite *quite* yet. It'll
-hopefully all be done and ready to publish by early 2016. Watch this space to
-read the paper once it's published.
+A paper is currently in the works, so there's nothing to cite *quite* yet.
+It'll hopefully all be done and ready to publish by early ~~2016~~ 2017. Watch
+this space to read the paper once it's published.

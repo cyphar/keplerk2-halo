@@ -50,7 +50,7 @@ def main(ifile, config):
 	stamps = stamps[filt]
 	parallax = parallax[filt]
 
-	fig = plt.figure(figsize=(5, 5), dpi=80)
+	fig = plt.figure(figsize=(5.7, 5.7), dpi=80)
 
 	parallax = [float(p.split(" ")[0]) for p in parallax if p.split(" ")[0] != "~"]
 	Mags = Vs + 5*(numpy.log10(parallax) + 1)

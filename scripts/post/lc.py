@@ -17,7 +17,9 @@
 
 import os
 import sys
+import math
 import argparse
+import itertools
 
 import matplotlib as mpl
 mpl.use("TkAgg")
@@ -44,6 +46,9 @@ import utils
 FIELDS = ["t", "flux"]
 CASTS = [float, float]
 
+COLORS = itertools.cycle(["0.5", "r", "b", "g"])
+MARKERS = itertools.cycle(["o", "s", "^"])
+
 def description(config):
 	desc = []
 
@@ -60,7 +65,7 @@ def amplitude(ys):
 	return (np.max(ys) - np.min(ys)) / 2
 
 # TODO: Make this calling convention prettier.
-def plot_lc(config, fig, ifile):
+def plot_lc(ax, config, ifile):
 	# Get the cadence information.
 	with open(ifile, "r", newline="") as f:
 		times, fluxs = utils.csv_column_read(f, FIELDS, casts=CASTS, start=config.start, end=config.end)
@@ -70,7 +75,7 @@ def plot_lc(config, fig, ifile):
 	ys = fluxs
 
 	# Convert flux to ppm.
-	#ys = ys / ys.mean() - 1
+	ys = ys / ys.mean() - 1
 	#ys *= 1e6
 
 	# Figure out time-related offsets.
@@ -79,91 +84,59 @@ def plot_lc(config, fig, ifile):
 	if config.timestamp is not None:
 		config.timestamp -= offset
 
-	if config.fft:
-		fx, fy = utils.lombscargle_amplitude(xs, ys, upper=config.high_freq)
+	if config.period is not None:
+		# TODO: We should allow for showing more than one phase.
+		xs = (xs % config.period) / config.period
+		xs = (xs + config.phase) % 1.0
 
-		if config.fftout:
-			with open(config.fftout, "w", newline="") as f:
-				utils.csv_column_write(f, [fx, fy], ["frequency", "amplitude"])
+	# Bin the folded phase plot by taking the average of ranges.
+	if config.bins is not None:
+		size = 1.0 / config.bins
+		nys = np.zeros(config.bins)
 
-		fx, fy = utils.raw_to_psd(fx, fy, fluxs.var())
+		for i in range(config.bins):
+			rnge = (i*size <= xs) & (xs < (i+1)*size)
+			nys[i] = np.median(ys[rnge])
 
-	if config.lc:
-		if config.period is not None:
-			# TODO: We should allow for showing more than one phase.
-			xs = (xs % config.period) / config.period
-			xs = (xs + config.phase) % 1.0
+		ys = nys
+		xs = np.arange(config.bins) * size
 
-		# Bin the folded phase plot by taking the average of ranges.
-		if config.bins is not None:
-			size = 1.0 / config.bins
-			nys = np.zeros(config.bins)
+	# Replication.
+	# TODO: Make this code less insane and work for fractional width.
+	ceilwidth = math.ceil(config.width)
+	xs = np.tile(xs, ceilwidth) + np.repeat(np.arange(ceilwidth), xs.shape[0])
+	ys = np.tile(ys, ceilwidth)
 
-			for i in range(config.bins):
-				rnge = (i*size <= xs) & (xs < (i+1)*size)
-				nys[i] = np.median(ys[rnge])
-
-			ys = nys
-			xs = np.arange(config.bins) * size
-
-		# Replication.
-		xs = np.tile(xs, config.width) + np.repeat(np.arange(config.width), xs.shape[0])
-		ys = np.tile(ys, config.width)
-
-	if config.fft and config.lc:
-		ax1 = utils.latexify(fig.add_subplot(211))
+	if not (config.period or config.bins):
+		ax.plot(xs, ys, color="0.5", linestyle="-", marker="None")
+		#ax.plot(xs, ys, color="k", linestyle="None", marker="+", label=r"Kepler/K2 Halo Photometry")
+		ax.set_xlabel("Time ($d$)")
 	else:
-		ax1 = utils.latexify(fig.add_subplot(111))
+		# TODO: We should overlay a binned version.
+		if config.timestamp is not None:
+			predicted = (config.timestamp % config.period) / config.period
+			predicted = (predicted + config.phase) % 1.0
+			ax.xaxis.set_ticks(predicted + np.arange(config.width), minor=True)
+			ax.xaxis.grid(True, which="minor", color="r", linestyle="--", linewidth=2)
+		ax.plot(xs, ys, color=config.color, linestyle="None", marker=config.marker, markeredgecolor="k", label=config.label)
+		ax.set_xlabel("Phase")
+	ax.set_ylabel(r"Relative Intensity")
 
-	if config.lc:
-		if not (config.period or config.bins):
-			ax1.plot(xs, ys, color="0.5", linestyle="-", marker="None")
-			#ax1.plot(xs, ys, color="k", linestyle="None", marker="+", label=r"Kepler/K2 Halo Photometry")
-			ax1.set_xlabel("Time ($d$)")
-		else:
-			# TODO: We should overlay a binned version.
-			if config.timestamp is not None:
-				predicted = (config.timestamp % config.period) / config.period
-				predicted = (predicted + config.phase) % 1.0
-				ax1.xaxis.set_ticks(predicted + np.arange(config.width), minor=True)
-				ax1.xaxis.grid(True, which="minor", color="r", linestyle="--", linewidth=2)
-			ax1.plot(xs, ys, color="0.5", linestyle="None", marker="o", label=r"Kepler/K2 Halo Photometry")
-			ax1.set_xlabel("Phase")
-		ax1.set_ylabel(r"Intensity (ppm)")
+	if config.title:
+		ax.set_title(r"Light Curve [%s] # %s" % (description(config), config.comment or ""))
 
-	if config.lc and config.title:
-		ax1.set_title(r"Light Curve [%s] # %s" % (description(config), config.comment or ""))
+def main(ifiles, config):
+	fig = plt.figure(figsize=(6, 6), dpi=50)
+	ax = utils.latexify(fig.add_subplot(111))
+	for ifile in ifiles:
+		config.marker = next(MARKERS)
+		config.color = next(COLORS)
+		# This is ugly.
+		config.label = input("Label for %s: " % (ifile,))
+		plot_lc(ax, config, ifile)
 
-	if config.fft:
-		if config.lc:
-			ax2 = utils.latexify(fig.add_subplot(212))
-		else:
-			ax2 = ax1
-		ax2.plot(fx, fy, color="k", linestyle="-", marker="None")
-		#ax2.xaxis.set_ticks(np.arange(*ax2.get_xlim(), step=1))
-		#ax2.xaxis.set_ticks(np.arange(*ax2.get_xlim(), step=0.25), minor=True)
-		#ax2.xaxis.grid(True, which="major", color="k", linestyle="--")
-		#ax2.xaxis.grid(True, which="minor", color="k", linestyle=":")
-		ax2.set_axisbelow(True)
-		#ax2.set_xlabel("Frequency ($d^{-1}$)")
-		ax2.set_xlabel("Frequency ($\mu$Hz)")
-		#ax2.set_ylabel("Amplitude (ppm)")
-		ax2.set_ylabel("PDF (ppm$^2$ $\mu$Hz$^{-1}$)")
-		if config.maxx > config.minx:
-			ax2.set_xlim([config.minx, config.maxx])
-		if config.maxy > config.miny:
-			ax2.set_ylim([config.miny, config.maxy])
-
-	plt.legend()
 	fig.tight_layout()
-
-def main(ifile, config):
-	if config.fft and config.lc:
-		figsize = (10, 12)
-	else:
-		figsize = (10, 6)
-
-	plot_lc(config, plt.figure(figsize=figsize, dpi=50), ifile)
+	plt.legend()
 
 	if config.ofile:
 		plt.savefig(config.ofile, transparent=True)
@@ -173,32 +146,21 @@ def main(ifile, config):
 if __name__ == "__main__":
 	def __wrapped_main__():
 		parser = argparse.ArgumentParser(description="Given an analysis, generate a light curve for the data.")
-		parser.add_argument("--min-x", dest="minx", type=float, default=0, help="Minimum x value for frequency.")
-		parser.add_argument("--max-x", dest="maxx", type=float, default=0, help="Maximum x value for frequency.")
-		parser.add_argument("--min-y", dest="miny", type=float, default=0, help="Minimum y value for frequency.")
-		parser.add_argument("--max-y", dest="maxy", type=float, default=0, help="Maximum y value for frequency.")
-		parser.add_argument("-lc", "--light-curve", dest="lc", action="store_const", const=True, default=True, help="Enable light curve (default).")
-		parser.add_argument("-nolc", "--no-light-curve", dest="lc", action="store_const", const=False, default=True, help="Disable light curve.")
-		parser.add_argument("-fft", "--fft", dest="fft", action="store_const", const=True, default=True, help="Enable Fourier transform (default).")
-		parser.add_argument("-nofft", "--no-fft", dest="fft", action="store_const", const=False, default=True, help="Disable Fourier transform.")
 		parser.add_argument("-title", "--title", dest="title", action="store_const", const=True, default=True, help="Enable titles (default).")
 		parser.add_argument("-notitle", "--no-title", dest="title", action="store_const", const=False, default=True, help="Disable titles.")
 		parser.add_argument("-c", "--comment", dest="comment", type=str, default=None, help="Comment to add to the title (default: None).")
 		parser.add_argument("-sc", "--start", dest="start", type=int, default=None, help="Start cadence (default: None).")
 		parser.add_argument("-ec", "--end", dest="end", type=int, default=None, help="End cadence (default: None).")
-		parser.add_argument("-fs", "--fft-samples", dest="samples", type=float, default=1e3, help="Number of samples in periodogram (default: 1000).")
-		parser.add_argument("-hf", "--high-frequency", dest="high_freq", type=float, default=None, help="Highest frequency in periodogram (default: approximate nyquist).")
 		parser.add_argument("-fp", "--folding-period", dest="period", type=float, default=None, help="The folding period of the light curve (default: None).")
-		parser.add_argument("-w", "--width", dest="width", type=int, default=1, help="The phase width displayed (default: 1).")
+		parser.add_argument("-w", "--width", dest="width", type=float, default=1, help="The phase width displayed (default: 1).")
 		parser.add_argument("-po", "--phase-offset", dest="phase", type=float, default=0, help="Amount by which to phase shift the light curve (default: 0).")
 		parser.add_argument("-pt", "--past-timestamp", dest="timestamp", type=float, default=None, help="BJD timestamp of some event that occured in the past to plot the predicted value of given the period (default: None).")
 		parser.add_argument("-b", "--bins", dest="bins", type=int, default=None, help="The number of bins to bin the folded light curve (default: none).")
 		parser.add_argument("-s", "--save", dest="ofile", type=str, default=None, help="The output file.")
-		parser.add_argument("--save-fft", dest="fftout", type=str, default=None, help="The output file for the FFT data.")
-		parser.add_argument("csv", nargs=1)
+		parser.add_argument("csv", nargs='+')
 
 		config = parser.parse_args()
 
-		main(config.csv[0], config)
+		main(config.csv, config)
 
 	__wrapped_main__()

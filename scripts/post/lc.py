@@ -78,12 +78,6 @@ def plot_lc(ax, config, ifile):
 	ys = ys / ys.mean() - 1
 	#ys *= 1e6
 
-	# Figure out time-related offsets.
-	offset = np.min(times)
-	xs -= offset
-	if config.timestamp is not None:
-		config.timestamp -= offset
-
 	if config.period is not None:
 		# TODO: We should allow for showing more than one phase.
 		xs = (xs % config.period) / config.period
@@ -103,21 +97,17 @@ def plot_lc(ax, config, ifile):
 
 	# Replication.
 	# TODO: Make this code less insane and work for fractional width.
-	ceilwidth = math.ceil(config.width)
-	xs = np.tile(xs, ceilwidth) + np.repeat(np.arange(ceilwidth), xs.shape[0])
-	ys = np.tile(ys, ceilwidth)
+	if config.period is not None:
+		ceilwidth = math.ceil(config.width)
+		xs = np.tile(xs, ceilwidth) + np.repeat(np.arange(ceilwidth), xs.shape[0])
+		ys = np.tile(ys, ceilwidth)
+		ax.set_xlim([0, config.width])
 
 	if not (config.period or config.bins):
 		ax.plot(xs, ys, color="0.5", linestyle="-", marker="None")
 		#ax.plot(xs, ys, color="k", linestyle="None", marker="+", label=r"Kepler/K2 Halo Photometry")
 		ax.set_xlabel("Time ($d$)")
 	else:
-		# TODO: We should overlay a binned version.
-		if config.timestamp is not None:
-			predicted = (config.timestamp % config.period) / config.period
-			predicted = (predicted + config.phase) % 1.0
-			ax.xaxis.set_ticks(predicted + np.arange(config.width), minor=True)
-			ax.xaxis.grid(True, which="minor", color="r", linestyle="--", linewidth=2)
 		ax.plot(xs, ys, color=config.color, linestyle="None", marker=config.marker, markeredgecolor="k", label=config.label)
 		ax.set_xlabel("Phase")
 	ax.set_ylabel(r"Relative Intensity")
@@ -154,7 +144,6 @@ if __name__ == "__main__":
 		parser.add_argument("-fp", "--folding-period", dest="period", type=float, default=None, help="The folding period of the light curve (default: None).")
 		parser.add_argument("-w", "--width", dest="width", type=float, default=1, help="The phase width displayed (default: 1).")
 		parser.add_argument("-po", "--phase-offset", dest="phase", type=float, default=0, help="Amount by which to phase shift the light curve (default: 0).")
-		parser.add_argument("-pt", "--past-timestamp", dest="timestamp", type=float, default=None, help="BJD timestamp of some event that occured in the past to plot the predicted value of given the period (default: None).")
 		parser.add_argument("-b", "--bins", dest="bins", type=int, default=None, help="The number of bins to bin the folded light curve (default: none).")
 		parser.add_argument("-s", "--save", dest="ofile", type=str, default=None, help="The output file.")
 		parser.add_argument("csv", nargs='+')

@@ -116,7 +116,7 @@ def plot_lc(ax, config, ifile):
 		ax.set_title(r"Light Curve [%s] # %s" % (description(config), config.comment or ""))
 
 def main(ifiles, config):
-	fig = plt.figure(figsize=(6, 6), dpi=50)
+	fig = plt.figure(figsize=(5.7, 4.5), dpi=50)
 	ax = utils.latexify(fig.add_subplot(111))
 	for ifile in ifiles:
 		config.marker = next(MARKERS)

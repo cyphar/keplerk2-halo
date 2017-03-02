@@ -19,9 +19,10 @@ data, run the following command in any `*nix` shell:
 	-mf 400 -m data/pi_Sco/1.203442993/ap_203442993.txt -d 1 \
 	-s pi+analysis.csv -t data/pi_Sco/1.203442993/xy_203442993.csv \
 	data/pi_Sco/1.203442993/ktwo203442993-c02_lpd-targ.fits
-% ./scripts/post/lc.py --no-title --no-fft -w 2 \
-	-fp 1.570103 -pt 2452025.96 \
-	<(./scripts/post/highpass.py -o 6 -w 201 -sc 50 -ec -580 pi+analysis.csv)
+% ./scripts/post/lc.py --no-title -w 1.2 -fp 1.570103 \
+    <(./scripts/post/highpass.py -w 401 -o 6 -sc 50 -ec -580 pi+analysis.csv) \
+	<(./scripts/etc/mag2flux.py -i \
+		<(./scripts/etc/phase2time.py --period 1.570103 --offset 2452025.96 data/pi_Sco/shobbrook_phase.csv))
 ```
 
 ### &pi; Sco ###
@@ -29,7 +30,7 @@ This is an example of our analysis usnig aperture analysis, using
 `EPIC 203442993`. This photometric analysis mirrors ground-based surveys of
 &pi; Sco and has an incredible trendline.
 
-![piscoexample.png](piscoexample.png)
+![pi Sco example](pisco_lightcurve.png)
 
 
 ### License ###

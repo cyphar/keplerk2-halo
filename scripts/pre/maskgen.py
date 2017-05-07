@@ -146,14 +146,15 @@ def main(config):
 	# For my own sanity.
 	assert mask.equals(shapely.wkt.loads(shapely.wkt.dumps(mask)))
 
-	import matplotlib
-	matplotlib.use("TkAgg")
-	import matplotlib.pyplot as plt
-	def plot_bounds(ax, ob, zorder=1, alpha=1):
-		x, y = ob.boundary.xy
-		ax.plot(x, y, 'o', color="k", zorder=zorder, alpha=alpha)
-	plot_bounds(plt, mask)
-	plt.show()
+	if config.plot:
+		import matplotlib
+		matplotlib.use("TkAgg")
+		import matplotlib.pyplot as plt
+		def plot_bounds(ax, ob, zorder=1, alpha=1):
+			x, y = ob.boundary.xy
+			ax.plot(x, y, 'o', color="k", zorder=zorder, alpha=alpha)
+		plot_bounds(plt, mask)
+		plt.show()
 
 	sys.stdout.write(shapely.wkt.dumps(mask))
 	sys.stdout.flush()
@@ -164,6 +165,7 @@ if __name__ == "__main__":
 		parser.add_argument("--init", dest="init", action="store_const", const=True, default=False, help="Create a new aperture, just based on the NaN mask.")
 		parser.add_argument("-f", "--fits", dest="fits", required=True, help="The FITS file to use as the bounds.")
 		parser.add_argument("-t", "--track", dest="track", type=str, help="A CSV File with (cadence, x, y) track data of the FITS file.")
+		parser.add_Argument("--plot", action="store_true", help="Plot mask as a debugging step.")
 		# Cadence options
 		parser.add_argument("-sc", "--start", dest="start", type=int, default=None, help="Start cadence (default: None).")
 		parser.add_argument("-ec", "--end", dest="end", type=int, default=None, help="End cadence (default: None).")

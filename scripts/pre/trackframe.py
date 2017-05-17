@@ -23,6 +23,7 @@ import numpy
 import numpy.linalg
 import scipy.interpolate
 import scipy.optimize
+import skimage.measure
 import argparse
 
 import matplotlib
@@ -91,11 +92,20 @@ def interpolate_flux(flux, delta, **kwargs):
 	gridx, gridy = (numpy.mgrid[1:ylen:ylen*1j,1:xlen:xlen*1j].T + delta).T - 1
 	return scipy.interpolate.griddata(points, flux[list(points.T)], (gridx, gridy), **kwargs)
 
-def flux_similarity(vec, base, flux):
+def flux_similarity(vec, base, flux, H):
+	# Create an interpolated flux setup.
 	interp = interpolate_flux(base, vec, method="cubic")
-	interp[numpy.isnan(interp)] = 0
-	diff = 1000*numpy.abs(interp.sum() - flux.sum())
-	return diff
+	interp[numpy.isnan(interp)] = numpy.median(base[~numpy.isnan(base)])
+	interp = H * (interp - interp.mean()) / interp.std()
+
+	# Compare similarity using SSIM (http://dl.acm.org/citation.cfm?id=2320551#)
+	# which is better than the "trivial" root-mean-square method and instead
+	# encodes structural information in the comparison.
+	ssim = skimage.measure.compare_ssim(flux, interp, gaussian_weights=True)
+
+	# We want to converge on a ssim of 1. Also multiply it so it's large enough
+	# to not trigger early convergence detection.
+	return 1000 * (1 - ssim)
 
 def ignore_mask(fluxs):
 	# Ignore pixels which are NaN at any point.
@@ -114,6 +124,30 @@ def ignore_mask(fluxs):
 	ignore |= numpy.any(fluxs >= (mean+30*std), axis=0)
 	return ignore
 
+def hanning(shape):
+	H = None
+	for axis in shape:
+		nxt = numpy.hanning(axis)
+		if H is not None:
+			nxt = numpy.outer(H, nxt)
+		H = nxt
+	return H
+
+def DEBUG_plot(idx, fig, base, flx, H):
+	X, Y = 200, 200
+	grid = numpy.zeros([X, Y])
+	for x, y in utils.positions(grid):
+		vec = 5 - numpy.array([x / X, y / Y]) * 10
+		grid[y, x] = flux_similarity(vec, base, flx, H) / 1000
+
+	ax = utils.latexify(fig.add_subplot(111))
+	s = ax.imshow(grid, interpolation='none', extent=[-5, 5, -5, 5], cmap="viridis")
+	ax.set_xlabel(r"x offset (px)")
+	ax.set_ylabel(r"y offset (px)")
+	ax.set_title(r"$\left|base_{offset} - frame_{%d}\right|$" % (idx,))
+	fig.tight_layout()
+	fig.colorbar(s, cmap="viridis")
+
 def main(ofile, config):
 	img = astropy.io.fits.open(config.fits)
 	img = filter_img(config, img)
@@ -125,27 +159,56 @@ def main(ofile, config):
 
 	# Generate ignore mask.
 	ignore = ignore_mask(flxs)
-	flxs[...,ignore] = 0
+	# flxs[...,ignore] = 0
+	flxs[...,ignore] = numpy.median(flxs[...,~ignore])
 
-	# Normalize every full image.
-	norms = numpy.linalg.norm(flxs, axis=(1, 2))
-	flxs /= numpy.swapaxes(numpy.ones(flxs.shape[::-1]) * norms, 0, 2)
+	# Normalise.
+	flxs = ((flxs.T - flxs.mean(axis=(1, 2))) / flxs.std(axis=(1, 2))).T
+	# Create a hanning window for it.
+	H = hanning(flxs.shape[1:])
+	flxs_hanning = flxs * H
 
 	# Take the first frame as our "base". We grid interpolate it later.
-	base = flxs[config.first,...]
+	base = flxs_hanning[config.first,...]
 
-	# aaaa
-	writer = csv.DictWriter(ofile, fieldnames=["cadence", "x", "y", "f"])
+	# XXX: This format is horrible...
+	writer = csv.DictWriter(ofile, fieldnames=["cadence", "x", "y"])
 	writer.writeheader()
-	writer.writerow({"cadence": "", "x": 1, "y": 1, "f": ""})
+	writer.writerow({"cadence": "", "x": -1, "y": -1})
+
+	# Figure out the initial vector.
+	NDIM = len(base.shape)
+	seed_vec = config.perturb*numpy.random.rand(NDIM)
+
+	# Purely for debugging.
+	debug_ssim = set([int(idx) for idx in config.plot_ssim])
 
 	# Iterate over the frames.
-	for idx, flx in enumerate(flxs):
-		NDIM = 2
-		seed = config.perturb*numpy.random.rand(NDIM)
-		xopt, fopt, *_ = scipy.optimize.fmin(flux_similarity, seed, args=(base, flx), full_output=True)
-		writer.writerow({"cadence": cadn[idx], "x": xopt[1], "y": xopt[0], "f": fopt})
+	for idx, flx in enumerate(flxs_hanning):
+		# XXX: Output some information to convince people we haven't frozen.
+		sys.stdout.write(".")
+		sys.stdout.flush()
+
+		# If we are on the base frame we know that the offset is (0, 0).
+		if config.first == idx:
+			seed_vec = numpy.zeros(NDIM)
+
+		if idx in debug_ssim:
+			fig = plt.figure(figsize=(10, 10), dpi=50)
+			DEBUG_plot(idx, fig, base, flx, H)
+			plt.legend()
+			plt.savefig("output_%d.png" % (idx,))
+			print("[!] output_%d.png" % (idx,))
+
+		vec, fopt, *_ = scipy.optimize.fmin(flux_similarity, seed_vec, args=(base, flx, H), full_output=True, disp=False)
+		writer.writerow({"cadence": cadn[idx], "x": vec[1], "y": vec[0]})
 		ofile.flush()
+
+		# We base the next frame on the previous one, sort of like MC.
+		seed_vec = vec
+
+	sys.stdout.write("DONE\n")
+	sys.stdout.flush()
 
 if __name__ == "__main__":
 	def __wrapped_main__():
@@ -154,7 +217,7 @@ if __name__ == "__main__":
 		parser.add_argument("-F", "--first", dest="first", type=int, default=0, help="The index of the 'base frame' which is used as the template to minimise similarity to.")
 		parser.add_argument("-o", "--output", dest="output", type=str, default=None, help="Output file for xy.csv (default: stdout).")
 		parser.add_argument("--perturb", dest="perturb", type=float, default=0.001, help="Level of inital perturbation (default: 0.001).")
-		parser.add_argument("--plot", action="store_true", help="Plot corner plot.")
+		parser.add_argument("--plot-ssim", dest="plot_ssim", action="append", default=[], help="Plot the SSIM space for the given indexes (default: none).")
 		# Cadence options
 		parser.add_argument("-sc", "--start", dest="start", type=int, default=None, help="Start cadence (default: None).")
 		parser.add_argument("-ec", "--end", dest="end", type=int, default=None, help="End cadence (default: None).")

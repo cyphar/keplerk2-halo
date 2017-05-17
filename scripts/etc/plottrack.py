@@ -39,43 +39,35 @@ mpl.rcParams.update({
 	"font.family": "serif", # ???
 })
 
-import numpy as np
+import numpy
 
 import utils
 
 FIELDS = ["cadence", "x", "y"]
-CASTS = [object, float, float]
+CASTS = [str, float, float]
 
 COLORS = itertools.cycle(["0.5", "r", "b", "g"])
 MARKERS = itertools.cycle(["o", "s", "^"])
 
-def description(config):
-	desc = []
-
-	if config.start or config.end:
-		desc.append("[$%s$:$%s$]" % (config.start or r"0", config.end or r"\infty"))
-	if config.period:
-		desc.append("period=%.6f" % (config.period,))
-	if config.bins:
-		desc.append("bins=%d" % (config.bins,))
-
-	return str.join(" ", desc)
-
-def amplitude(ys):
-	return (np.max(ys) - np.min(ys)) / 2
-
 def plot_track(ax, config, ifile):
 	# Get the cadence information.
 	with open(ifile, "r", newline="") as f:
-		_, xs, ys = utils.csv_column_read(f, FIELDS, casts=CASTS, start=config.start, end=config.end)
+		cadns, xs, ys = utils.csv_column_read(f, FIELDS, casts=CASTS, start=config.start, end=config.end)
 
 	# Skip first row.
-	xs = xs[1:] - xs[1]
-	ys = ys[1:] - ys[1]
+	cadns = [int(cadn) for cadn in cadns[1:]]
+	xs = xs[0] * (xs[1:] - numpy.median(xs[1:]))
+	ys = ys[0] * (ys[1:] - numpy.median(ys[1:]))
 
-	ax.plot(xs, ys, color=config.color, linestyle="None", marker=config.marker, markeredgecolor="k", label=config.label)
-	ax.set_xlabel(r"x offset (px)")
-	ax.set_ylabel(r"y offset (px)")
+	if config.collapse:
+		ax.plot(xs, ys, color=config.color, linestyle="None", marker=config.marker, markeredgecolor="k", label=config.label)
+		ax.set_xlabel(r"x offset (px)")
+		ax.set_ylabel(r"y offset (px)")
+	else:
+		ax.plot(cadns, xs, color=config.color, linestyle="None", marker=config.marker, markeredgecolor="r", label=config.label + " (x)")
+		ax.plot(cadns, ys, color=config.color, linestyle="None", marker=config.marker, markeredgecolor="b", label=config.label + " (y)")
+		ax.set_xlabel(r"Cadence")
+		ax.set_ylabel(r"{x, y} offset (px)")
 
 def main(ifiles, config):
 	fig = plt.figure(figsize=(5.7, 4.5), dpi=50)
@@ -101,6 +93,7 @@ if __name__ == "__main__":
 		parser.add_argument("-sc", "--start", dest="start", type=int, default=None, help="Start cadence (default: None).")
 		parser.add_argument("-ec", "--end", dest="end", type=int, default=None, help="End cadence (default: None).")
 		parser.add_argument("-s", "--save", dest="ofile", type=str, default=None, help="The output file.")
+		parser.add_argument("--timeseries", dest="collapse", action="store_false", default=True, help="Plot a timeseries rather than collapsed version.")
 		parser.add_argument("csv", nargs='+')
 
 		config = parser.parse_args()

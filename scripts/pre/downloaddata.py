@@ -19,10 +19,12 @@ import os
 import sys
 import json
 import zlib
+import tarfile
 import argparse
 import requests
 
 ARCHIVE_URL = "https://archive.stsci.edu/pub/k2/target_pixel_files/c%d/%.9d/%.5d/%s.gz"
+PRF_URL = "https://archive.stsci.edu/missions/kepler/fpc/prf/kplr2011265_prf.tar.gz"
 
 DATA_JSON = "stars.json"
 STAR_JSON = "targets.json"
@@ -53,7 +55,22 @@ def save_fits(url, ofile, config, chunk_size=1024):
 	tail = z.flush()
 	assert(len(tail) == 0)
 
+def save_prf(path, config):
+	sys.stdout.write("Saving PRF ")
+	sys.stdout.flush()
+
+	prf = os.path.join(path, "prf")
+	if config.clobber or not os.path.exists(prf):
+		r = requests.get(PRF_URL, stream=True)
+		with tarfile.open(fileobj=r.raw, mode="r|*") as tf:
+			tf.extractall(path=prf)
+
+	sys.stdout.write(" OK\n")
+	sys.stdout.flush()
+
 def save_data(path, config):
+	save_prf(path, config)
+
 	with open(os.path.join(path, DATA_JSON)) as fstars:
 		stars = json.load(fstars)
 

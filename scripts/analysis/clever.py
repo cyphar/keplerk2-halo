@@ -178,37 +178,10 @@ def plot_ani(fig, flximg, aperture, config):
 	else:
 		plt.show()
 
-# TODO: Check that we're not hitting off-by-one errors in the polygon code.
-#       Looking at the animation, it looks like the mask is slightly off.
-def polymask(mask):
-	# XXX: Simplistic mask-to-polygon converter. No smoothing through grouping
-	#      algorithms and convex hulls. It just makes a series of boxes for each
-	#      selected pixel (with no weighting) and then unions them.
-
-	SELECT_CHAR = "x"
-	mask = np.array(mask, dtype=str)
-	polys = []
-
-	for x, y in zip(*np.where(mask == SELECT_CHAR)):
-		px = shp.geometry.box(x, y, x + 1, y + 1)
-		polys.append(px)
-
-	return shp.ops.cascaded_union(polys)
-
 def main(fits, config):
 	with open(config.maskfile) as mfile:
-		# We reverse it from the "friendly" syntax to the coordinate-correct
-		# version. Should we do this? Probably not. Do we care? Nope.
-		mask = [[ch for ch in line.rstrip("\n")] for line in mfile][::-1]
-
-		# Double check that the mask is valid.
-		try:
-			assert len(set(len(row) for row in mask)) == 1
-		except AssertionError:
-			raise ValueError("mask file must have equal length lines")
-
-		# Create polygon based on mask.
-		poly = polymask(mask)
+		# Straight from shapely.
+		poly = shapely.wkt.loads(mfile.read())
 
 	if config.track is not None:
 		with open(config.track) as tfile:

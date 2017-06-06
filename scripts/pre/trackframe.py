@@ -98,10 +98,14 @@ def flux_similarity(vec, base, flux, H):
 	interp[numpy.isnan(interp)] = numpy.median(base[~numpy.isnan(base)])
 	interp = H * (interp - interp.mean()) / interp.std()
 
+	win_size = None
+	if any((numpy.array(flux.shape) - 11) < 0):
+		win_size = 7
+
 	# Compare similarity using SSIM (http://dl.acm.org/citation.cfm?id=2320551#)
 	# which is better than the "trivial" root-mean-square method and instead
 	# encodes structural information in the comparison.
-	ssim = skimage.measure.compare_ssim(flux, interp, gaussian_weights=True)
+	ssim = skimage.measure.compare_ssim(flux, interp, gaussian_weights=True, win_size=win_size)
 
 	# We want to converge on a ssim of 1. Also multiply it so it's large enough
 	# to not trigger early convergence detection.

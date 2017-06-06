@@ -22,6 +22,9 @@ import argparse
 import operator
 
 import astropy.io.fits
+import skimage.measure
+import scipy
+import scipy.interpolate
 
 import shapely.ops
 import shapely.wkt
@@ -147,8 +150,39 @@ def moving_mask(config, img, mask):
 
 	return mask
 
-def prf_similarity(vec, flx, prf):
-	x, y, mult = vec
+def prf_similarity(vec, flx, prf, **kwargs):
+	x, y, scale = vec
+	delta = (x, y)
+
+	# Interpolate prf to be the same as flx.
+	ylen, xlen = flx.shape
+	gridx, gridy = (numpy.mgrid[1:ylen:ylen*1j,1:xlen:xlen*1j].T + delta).T - 1
+	points = numpy.array(numpy.where(prf == prf)).T
+	interp = scipy.interpolate.griddata(points * scale, prf[list(points.T)], (gridx, gridy), **kwargs)
+
+	# Basically the same as flux_similarity...
+	interp[numpy.isnan(interp)] = numpy.median(prf[~numpy.isnan(prf)])
+	print(interp.mean(), interp.std())
+	interp = (interp - interp.mean()) / interp.std()
+	flx = (flx - flx.mean()) / flx.std()
+
+	if False:
+		import matplotlib
+		matplotlib.use("TkAgg")
+		import matplotlib.pyplot as plt
+		plt.imshow(interp)
+		plt.show()
+		# plt.imshow(flx)
+		# plt.show()
+
+	# Compare similarity using SSIM (http://dl.acm.org/citation.cfm?id=2320551#)
+	# which is better than the "trivial" root-mean-square method and instead
+	# encodes structural information in the comparison.
+	ssim = skimage.measure.compare_ssim(flx, interp, gaussian_weights=True)
+
+	# We want to converge on a ssim of 1. Also multiply it so it's large enough
+	# to not trigger early convergence detection.
+	return 1000 * (1 - ssim)
 
 def subtract_prf(config, img, img_orig, mask):
 	flux = img["FLUX"]
@@ -157,7 +191,29 @@ def subtract_prf(config, img, img_orig, mask):
 	prf = astropy.io.fits.open(config.prf)
 
 	# TODO: We should interpolate the PRF to the co-ordinates of the target.
-	prf = prf[1].data
+	prf = prf[5].data
+	flx = flux[config.frame]
+
+	flx = numpy.array(flx, dtype="float64")
+	prf = numpy.array(prf, dtype="float64")
+
+	# To make things easier.
+	MULT = 3
+	ylen, xlen = numpy.array(flx.shape) * MULT
+	gridx, gridy = numpy.mgrid[1:ylen:ylen*1j,1:xlen:xlen*1j] / MULT - 1
+	points = numpy.array(numpy.where(prf == prf)).T
+	prf = scipy.interpolate.griddata(points, prf[list(points.T)], (gridx, gridy))
+	print(prf)
+
+	# la-di-da
+	NDIM = 3
+	vec = 1e-5 * numpy.random.rand(NDIM)
+	vec[-1] = (numpy.array(flx.shape) / numpy.array(prf.shape)).mean()
+	print(vec)
+	vec, fopt, *_ = scipy.optimize.fmin(prf_similarity, vec, args=(flx, prf), full_output=True, disp=False)
+	print(vec)
+	vec, fopt, *_ = scipy.optimize.fmin(prf_similarity, vec, args=(flx, prf), full_output=True, disp=False)
+	print(vec)
 
 	# Move the mask to the right
 

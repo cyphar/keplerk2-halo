@@ -19,8 +19,7 @@ import os
 import argparse
 
 import matplotlib as mpl
-if not os.getenv("DISPLAY"):
-	mpl.use("Agg") # Hack to fix no display.
+mpl.use("TkAgg")
 import matplotlib.pyplot as plt
 
 mpl.rcParams.update({

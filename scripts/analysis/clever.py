@@ -65,6 +65,7 @@ import shapely as shp
 import shapely.ops
 import shapely.affinity
 import shapely.geometry
+import shapely.wkt
 
 import utils
 
@@ -181,7 +182,7 @@ def plot_ani(fig, flximg, aperture, config):
 def main(fits, config):
 	with open(config.maskfile) as mfile:
 		# Straight from shapely.
-		poly = shapely.wkt.loads(mfile.read())
+		poly = shp.wkt.loads(mfile.read())
 
 	if config.track is not None:
 		with open(config.track) as tfile:

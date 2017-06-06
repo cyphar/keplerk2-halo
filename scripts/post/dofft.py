@@ -30,6 +30,7 @@ def main(inf, outf, config):
 	with open(inf, "r", newline="") as f:
 		times, fluxs = utils.csv_column_read(f, FIELDS, casts=CASTS, start=config.start, end=config.end)
 
+	fluxs = fluxs / fluxs.mean()
 	fx, fy = utils.lombscargle_amplitude(times, fluxs, mult=config.mult, upper=config.upper)
 
 	# Output the FFT.
